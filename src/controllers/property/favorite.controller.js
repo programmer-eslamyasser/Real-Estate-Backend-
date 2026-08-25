@@ -27,7 +27,7 @@ exports.getFavorites = asyncHandler(async (req, res) => {
   const [total, favorites] = await Promise.all([
     Favorite.countDocuments({ user_id: req.user._id }),
     Favorite.find({ user_id: req.user._id })
-      .populate('property_id', 'title price location images avgRating status')
+      .populate('property_id')
       .skip(skip)
       .limit(limit)
       .sort({ created_at: -1 })

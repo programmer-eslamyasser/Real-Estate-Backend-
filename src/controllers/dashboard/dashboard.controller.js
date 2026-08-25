@@ -1031,7 +1031,7 @@ exports.buyerFavorites = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPaginationParams(req.query);
   const [favorites, total] = await Promise.all([
     Favorite.find({ user_id: req.user._id })
-      .populate('property_id', 'title price location images avgRating')
+      .populate('property_id')
       .skip(skip)
       .limit(limit)
       .sort('-created_at')
