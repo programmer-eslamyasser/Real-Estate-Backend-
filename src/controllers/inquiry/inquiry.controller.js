@@ -49,10 +49,14 @@ exports.sendInquiry = async (req, res, next) => {
       details:  submissionDetails,
     });
 
-    // ── Email Notification to Admin (Non-blocking) ──────────────────────────
-    sendPropertySubmissionNotificationEmail(submissionDetails).catch((err) => {
-      logger.error(`[InquiryController] Failed to send admin email notification: ${err?.message || err}`);
-    });
+    // ── Email Notification to Admin (AWAITED for Serverless Execution) ──
+    try {
+      if (isPropertySubmission) {
+        await sendPropertySubmissionNotificationEmail(submissionDetails);
+      }
+    } catch (emailErr) {
+      logger.error(`[InquiryController] Email sending error, but inquiry record was saved safely: ${emailErr?.message || emailErr}`);
+    }
 
     if (receiverId && property) {
       await createNotification(req.io, receiverId, {

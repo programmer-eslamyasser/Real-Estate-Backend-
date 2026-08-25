@@ -149,9 +149,11 @@ exports.resendOTP = asyncHandler(async (req, res) => {
   const otp = user.createOTP();
   await user.save({ validateBeforeSave: false });
 
-  sendVerificationEmail(user.email, otp).catch(e =>
-    logger.warn(`[ResendOTP] Email send failed: ${e.message}`)
-  );
+  try {
+    await sendVerificationEmail(user.email, otp);
+  } catch (e) {
+    logger.warn(`[ResendOTP] Email send failed: ${e.message}`);
+  }
 
   // rawOTP is intentionally NOT returned in the response (security)
   res.status(200).json({ status: 'success', message: req.t('AUTH.OTP_RESENT') });

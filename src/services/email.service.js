@@ -5,39 +5,87 @@ const port = Number(process.env.EMAIL_PORT) || 587;
 const secure = port === 465 || process.env.EMAIL_SECURE === 'true';
 
 const transporter = nodemailer.createTransport({
-  host:   process.env.EMAIL_HOST,
+  host:   process.env.EMAIL_HOST || 'smtp.resend.com',
   port:   port,
   secure: secure,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: process.env.EMAIL_USER || 'resend',
+    pass: process.env.EMAIL_PASS || process.env.RESEND_API_KEY,
   },
   tls: {
-    rejectUnauthorized: false // Prevents failure due to self-signed/proxy certificate chain verification on cloud hosts
+    rejectUnauthorized: false
   },
-  connectionTimeout: 10000, // 10 seconds timeout to connect
-  socketTimeout: 10000,     // 10 seconds timeout for socket inactivity
+  connectionTimeout: 10000,
+  socketTimeout: 10000,
 });
+
+/**
+ * Resend HTTPS REST API direct sender.
+ * Highly recommended for Vercel Serverless Functions to avoid TCP/SMTP socket timeouts.
+ */
+const sendEmailViaResendHttp = async ({ to, subject, html }) => {
+  const apiKey = process.env.RESEND_API_KEY || (process.env.EMAIL_PASS?.startsWith('re_') ? process.env.EMAIL_PASS : null);
+  if (!apiKey) return null;
+
+  const from = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'AQARIO Luxe <onboarding@resend.dev>';
+  
+  logger.info(`[EmailService] Sending email via Resend HTTPS REST API to: ${to}`);
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey.trim()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: from,
+      to: Array.isArray(to) ? to : [to],
+      subject: subject,
+      html: html,
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    const errorMsg = data?.message || data?.error || res.statusText;
+    logger.error(`[EmailService] ❌ Resend API HTTP ${res.status} Error: ${JSON.stringify(data)}`);
+    throw new Error(`Resend API Error (${res.status}): ${errorMsg}`);
+  }
+
+  logger.info(`[EmailService] ✅ Email sent successfully via Resend API. ID: ${data.id}`);
+  return { messageId: data.id };
+};
 
 const sendEmail = async ({ to, subject, html }) => {
   if (process.env.NODE_ENV === 'test') {
-    logger.info(`[Email] Test environment: Skipping actual email to ${to}`);
+    logger.info(`[EmailService] Test environment: Skipping actual email to ${to}`);
     return { messageId: 'test-message-id' };
   }
+
+  // 1. Try Resend HTTPS REST API first (Ideal for Vercel Serverless Functions)
+  const hasResendKey = !!(process.env.RESEND_API_KEY || (process.env.EMAIL_PASS && process.env.EMAIL_PASS.startsWith('re_')));
+  if (hasResendKey) {
+    try {
+      return await sendEmailViaResendHttp({ to, subject, html });
+    } catch (resendErr) {
+      logger.warn(`[EmailService] Resend HTTPS API failed, falling back to SMTP: ${resendErr.message}`);
+    }
+  }
+
+  // 2. Fallback to Nodemailer SMTP Transport
   try {
-    logger.info(`[Email] Attempting to send email to: ${to}`);
-    logger.info(`[Email] SMTP Config: ${process.env.EMAIL_HOST}:${process.env.EMAIL_PORT}`);
+    logger.info(`[EmailService] Attempting to send email via SMTP to: ${to}`);
     const result = await transporter.sendMail({
-      from: `"Real Estate Platform" <${process.env.EMAIL_USER}>`,
+      from: process.env.EMAIL_FROM || `"AQARIO Luxe" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html,
     });
-    logger.info(`[Email] ✅ Email sent successfully. Message ID: ${result.messageId}`);
+    logger.info(`[EmailService] ✅ Email sent successfully via SMTP. Message ID: ${result.messageId}`);
     return result;
   } catch (error) {
-    logger.error(`[Email] ❌ Failed to send email: ${error.message}`);
-    logger.error(`[Email] Error code: ${error.code}`);
+    logger.error(`[EmailService] ❌ Failed to send email via SMTP: ${error.message}`);
     throw error;
   }
 };
@@ -155,11 +203,11 @@ exports.sendViewingResponseEmail = async (email, { status, propertyTitle, prefer
 
 // ─── Property Submission Email Notification ────────
 exports.sendPropertySubmissionNotificationEmail = async (details = {}) => {
-  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'eslam9076460@gmail.com';
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || process.env.EMAIL_USER || 'eslam9076460@gmail.com';
   const { contactName, contactPhone, propertyType, listingType, city, notes, submittedAt } = details;
 
   try {
-    logger.info(`[EmailService] Sending new property request notification email to: ${adminEmail}`);
+    logger.info(`[EmailService] Preparing property submission email notification for admin: ${adminEmail}`);
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #c5a059; border-radius: 12px; background-color: #141418; color: #ffffff; direction: rtl; text-align: right;">
@@ -212,13 +260,10 @@ exports.sendPropertySubmissionNotificationEmail = async (details = {}) => {
       html: htmlContent
     });
 
-    logger.info(`[EmailService] ✅ Property request email sent successfully to ${adminEmail}. Message ID: ${result?.messageId}`);
+    logger.info(`[EmailService] ✅ Property submission notification email sent successfully to ${adminEmail}`);
     return result;
   } catch (err) {
     logger.error(`[EmailService] ❌ Failed to send property request email to ${adminEmail}: ${err.message}`);
-    // Non-blocking: do not throw to caller
     return null;
   }
 };
-
-
