@@ -89,8 +89,8 @@ exports.getAllProperties = asyncHandler(async (req, res) => {
   // minPrice / maxPrice → price range operators
   if (rawQuery.minPrice || rawQuery.maxPrice) {
     rawQuery.price = {};
-    if (rawQuery.minPrice) { rawQuery.price.$gte = Number(rawQuery.minPrice); delete rawQuery.minPrice; }
-    if (rawQuery.maxPrice) { rawQuery.price.$lte = Number(rawQuery.maxPrice); delete rawQuery.maxPrice; }
+    if (rawQuery.minPrice) { rawQuery.price.gte = Number(rawQuery.minPrice); delete rawQuery.minPrice; }
+    if (rawQuery.maxPrice) { rawQuery.price.lte = Number(rawQuery.maxPrice); delete rawQuery.maxPrice; }
   }
 
   // ── Ranking System: Sort by promotionScore (Featured > Boosted > Normal) ─────────
