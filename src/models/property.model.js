@@ -154,6 +154,7 @@ propertySchema.index({ 'location.city': 1 });
 propertySchema.index({ owner: 1 });
 propertySchema.index({ status: 1 });
 propertySchema.index({ isApproved: 1, status: 1, promotionScore: -1 });
+propertySchema.index({ isApproved: 1, promotionScore: -1, createdAt: -1 });
 propertySchema.index({ promotionScore: -1, createdAt: -1 });
 propertySchema.index({ owner: 1, createdAt: -1 });
 

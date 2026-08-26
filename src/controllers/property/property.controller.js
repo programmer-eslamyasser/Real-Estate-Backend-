@@ -127,6 +127,12 @@ exports.getAllProperties = asyncHandler(async (req, res) => {
     nextCursor = `${new Date(lastDoc.createdAt).toISOString()}_${lastDoc._id}`;
   }
 
+  if (!req.user) {
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+  } else {
+    res.setHeader('Cache-Control', 'private, no-cache');
+  }
+
   res.status(200).json({
     status: 'success',
     results: properties.length,
@@ -159,6 +165,9 @@ exports.getProperty = asyncHandler(async (req, res, next) => {
       property_id: property._id,
     });
     isFavorited = !!fav;
+    res.setHeader('Cache-Control', 'private, no-cache');
+  } else {
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
   }
 
   res.status(200).json({ status: 'success', data: { property, isFavorited } });
