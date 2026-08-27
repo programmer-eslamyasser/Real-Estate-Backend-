@@ -15,10 +15,15 @@ const cron         = require('node-cron');
 const Subscription = require('../models/subscription.model');
 const User         = require('../models/user.model');
 const logger       = require('../utils/logger');
+const connectDB    = require('../config/db');
+const mongoose     = require('mongoose');
 
 // ── Daily: expire overdue subscriptions ──────────────────────────────────────
 const expireSubscriptions = async () => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      await connectDB();
+    }
     const now = new Date();
 
     // Find all active subscriptions whose endDate has passed

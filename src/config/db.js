@@ -29,11 +29,17 @@ const connectDB = async () => {
   }
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI, {
-      // MongoDB Atlas recommended options
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of hanging on IP whitelist rejection
+      // MongoDB Atlas recommended options for high resilience & auto-recovery
+      serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-      maxPoolSize: 5, // Reduced maxPoolSize for better serverless scale-out compatibility
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      maxIdleTimeMS: 30000,
+      heartbeatFrequencyMS: 10000,
+      retryWrites: true,
+      retryReads: true,
     });
+    cachedDb = conn;
     logger.info(` MongoDB Atlas Connected: ${conn.connection.host}`);
   } catch (err) {
     // Gather connection and error diagnostics

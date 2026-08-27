@@ -1,10 +1,15 @@
 const cron = require('node-cron');
 const Payment = require('../models/payment.model');
 const logger = require('../utils/logger');
+const connectDB = require('../config/db');
+const mongoose = require('mongoose');
 
 // ─── Payment Expiry logic ───────────────────────────────
 const runPaymentExpiryJob = async () => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      await connectDB();
+    }
     const now = new Date();
 
     const result = await Payment.updateMany(
@@ -25,8 +30,8 @@ const runPaymentExpiryJob = async () => {
     }
     return result.modifiedCount;
   } catch (err) {
-    logger.error('[Cron] Payment expiry job error:', err);
-    throw err;
+    logger.warn(`[Cron] Payment expiry job warning: ${err.message}`);
+    return 0;
   }
 };
 
