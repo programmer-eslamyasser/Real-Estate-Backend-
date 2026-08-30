@@ -9,15 +9,8 @@ const transporter = nodemailer.createTransport({
 });
 
 const sendVerificationEmail = async (toEmail, otp) => {
-  const mailOptions = {
-    from: '"Real Estate App" <your-email@gmail.com>',
-    to: toEmail,
-    subject: "Email Verification OTP",
-    text: `Your OTP code is: ${otp}`,
-    html: `<p>Your OTP code is: <b>${otp}</b></p>`,
-  };
-
-  await transporter.sendMail(mailOptions);
+  // OTP service disabled
+  return true;
 };
 
 module.exports = sendVerificationEmail;

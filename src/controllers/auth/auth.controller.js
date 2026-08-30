@@ -4,6 +4,7 @@ const RefreshToken = require('../../models/refreshToken.model');
 const asyncHandler = require('../../utils/asyncHandler');
 const { signToken, signRefreshToken, verifyRefreshToken } = require('../../utils/jwt');
 const { sendPasswordResetEmail, sendVerificationEmail } = require('../../services/email.service');
+const { validateEmail } = require('../../utils/emailValidator');
 const logger = require('../../utils/logger');
 
 // ─── Helper ─────────────────────────────────────────────────
@@ -33,6 +34,12 @@ const persistRefreshToken = (userId, token, req) =>
 exports.register = asyncHandler(async (req, res) => {
   const { name, email, password, phone } = req.body;
 
+  // Validate email against fake/test emails and disposable domains
+  const emailValidation = validateEmail(email);
+  if (!emailValidation.valid) {
+    return res.status(400).json({ status: 'fail', message: emailValidation.error });
+  }
+
   let user = await User.findOne({ email });
   
   if (user) {
@@ -49,18 +56,21 @@ exports.register = asyncHandler(async (req, res) => {
     user = new User({ name, email, password, phone, role: 'buyer' });
   }
 
-  // Hash and store OTP
+  // OTP Service is currently disabled. Auto-verify registered users so they don't require OTP verification.
+  user.isVerified = true;
+
+  /*
+  // ─── OTP Disabled Code (Preserved for future re-activation) ───
   const otp = generateOTP();
   user.otpHash = crypto.createHash('sha256').update(otp).digest('hex');
   user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-  
-  // Save the user (creates or updates)
-  await user.save();
-
-  // Fire-and-forget: Send verification email asynchronously in the background so that SMTP server latency doesn't block signup
   sendVerificationEmail(user.email, otp).catch((emailError) => {
     logger.error(`[Email] Failed to send OTP to ${user.email}: ${emailError.message}`);
   });
+  */
+  
+  // Save the user (creates or updates)
+  await user.save();
 
   user.password = undefined;
   res.status(201).json({
@@ -113,50 +123,27 @@ exports.updateUserRole = asyncHandler(async (req, res) => {
 // ─── Verify OTP ─────────────────────────────────────────────
 exports.verifyOTP = asyncHandler(async (req, res) => {
   const email = req.body.email || req.query.email;
-  const { otp } = req.body;
 
   if (!email) {
     return res.status(400).json({ status: 'fail', message: 'Email identifier is required for OTP verification.' });
   }
 
-  const user = await User.findOne({ email: email.trim().toLowerCase() }).select('+otpHash +otpExpires +otpAttempts');
+  const user = await User.findOne({ email: email.trim().toLowerCase() });
 
   if (!user) return res.status(400).json({ status: 'fail', message: req.t('AUTH.USER_NOT_FOUND') });
-  if (user.isVerified) return res.status(400).json({ status: 'fail', message: req.t('AUTH.ACCOUNT_ALREADY_VERIFIED') });
 
-  // check OTP validity
-  const isValidOTP = user.verifyOTP(otp);
-
-  if (!isValidOTP) {
+  // Mark account as verified if not already
+  if (!user.isVerified) {
+    user.isVerified = true;
     await user.save({ validateBeforeSave: false });
-    return res.status(400).json({ status: 'fail', message: req.t('AUTH.INVALID_OR_EXPIRED_OTP') });
   }
 
-  user.isVerified = true;
-  await user.save({ validateBeforeSave: false });
-
-  res.status(200).json({ status: 'success', message: req.t('AUTH.EMAIL_VERIFIED') });
+  res.status(200).json({ status: 'success', message: 'OTP verification is disabled. Account is verified.' });
 });
 
 // ─── Resend OTP ─────────────────────────────────────────────
 exports.resendOTP = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-  const user = await User.findOne({ email }).select('+otpHash +otpExpires +otpAttempts');
-
-  if (!user) return res.status(400).json({ status: 'fail', message: req.t('AUTH.USER_NOT_FOUND') });
-  if (user.isVerified) return res.status(400).json({ status: 'fail', message: req.t('AUTH.ACCOUNT_ALREADY_VERIFIED') });
-
-  const otp = user.createOTP();
-  await user.save({ validateBeforeSave: false });
-
-  try {
-    await sendVerificationEmail(user.email, otp);
-  } catch (e) {
-    logger.warn(`[ResendOTP] Email send failed: ${e.message}`);
-  }
-
-  // rawOTP is intentionally NOT returned in the response (security)
-  res.status(200).json({ status: 'success', message: req.t('AUTH.OTP_RESENT') });
+  res.status(200).json({ status: 'success', message: 'OTP service is disabled. Accounts are verified automatically.' });
 });
 
 // ─── Login ──────────────────────────────────────────────────

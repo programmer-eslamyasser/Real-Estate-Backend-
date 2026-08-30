@@ -7,10 +7,12 @@ const validate = (schema, source = 'body') => {
       (req, res, next) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
+          const errList = errors.array().map((e) => (req.t ? req.t(e.msg) : e.msg));
+          const firstMsg = errList[0] || (req.t ? req.t('COMMON.VALIDATION_DATA_ERROR') : 'Validation data error');
           return res.status(400).json({
             status:  'fail',
-            message: 'COMMON.VALIDATION_DATA_ERROR',
-            errors:  errors.array().map((e) => e.msg),
+            message: firstMsg,
+            errors:  errList,
           });
         }
         next();
@@ -20,10 +22,12 @@ const validate = (schema, source = 'body') => {
   return (req, res, next) => {
     const { error, value } = schema.validate(req[source], { abortEarly: false, stripUnknown: true });
     if (error) {
+      const errList = error.details.map((e) => e.message.replace(/"/g, ''));
+      const firstMsg = errList[0] || (req.t ? req.t('COMMON.VALIDATION_DATA_ERROR') : 'Validation data error');
       return res.status(400).json({
         status:  'fail',
-        message: 'COMMON.VALIDATION_DATA_ERROR',
-        errors:  error.details.map((e) => e.message.replace(/"/g, '')),
+        message: firstMsg,
+        errors:  errList,
       });
     }
     req[source] = value;

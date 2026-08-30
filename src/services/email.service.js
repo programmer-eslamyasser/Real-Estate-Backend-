@@ -90,25 +90,18 @@ const sendEmail = async ({ to, subject, html }) => {
   }
 };
 
-// ─── Email Verification ───────────────────────────────
+// ─── Email Verification (Disabled) ──────────────────
 exports.sendVerificationEmail = async (email, otp) => {
+  logger.info(`[EmailService] OTP verification email skipped for ${email} (OTP service is disabled)`);
+  return true;
+  /*
   const verifyURL = `${process.env.CLIENT_URL}/verify-email/${otp}`;
-
   await sendEmail({
     to: email,
     subject: 'Email Verification',
-    html: `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #eee;border-radius:8px">
-        <h2 style="color:#1B3A5C">Verify Your Account</h2>
-        <p>Welcome to our Real Estate Platform! Please click the button below to verify your email:</p>
-        <a href="${verifyURL}" style="display:inline-block;padding:12px 28px;background:#28A745;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0;font-size:16px">
-          Verify Email
-        </a>
-        <p style="font-size:14px;color:#555">Or use this OTP code: <strong>${otp}</strong></p>
-        <p style="color:#888;font-size:13px">If you did not create an account, please ignore this email.</p>
-      </div>
-    `,
+    html: `...`,
   });
+  */
 };
 
 // ─── Password Reset ────────────────────────────────

@@ -1,5 +1,6 @@
 const { body } = require('express-validator');
 const i18next = require('../config/i18n').i18next;
+const { validateEmail } = require('../utils/emailValidator');
 
 // Helper: returns the translation key directly
 const t = (key) => key;
@@ -8,7 +9,14 @@ exports.registerSchema = [
   body('name').notEmpty().withMessage(t('VALIDATION.NAME_REQUIRED'))
     .isLength({ min: 3, max: 50 }).withMessage(t('VALIDATION.NAME_LENGTH')),
   body('email').notEmpty().withMessage(t('VALIDATION.EMAIL_REQUIRED'))
-    .isEmail().withMessage(t('VALIDATION.EMAIL_INVALID')).normalizeEmail(),
+    .isEmail().withMessage(t('VALIDATION.EMAIL_INVALID'))
+    .custom((val) => {
+      const result = validateEmail(val);
+      if (!result.valid) {
+        throw new Error(result.error || 'Please use a valid personal or business email address.');
+      }
+      return true;
+    }),
   body('password').notEmpty().withMessage(t('VALIDATION.PASSWORD_REQUIRED'))
     .isLength({ min: 8 }).withMessage(t('VALIDATION.PASSWORD_MIN')),
   body('phone').optional()

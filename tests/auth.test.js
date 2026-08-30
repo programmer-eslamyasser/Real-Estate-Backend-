@@ -27,29 +27,42 @@ describe('Auth Routes', () => {
     it('should register a new user successfully (status 201)', async () => {
       const res = await request(app)
         .post('/api/v1/auth/register')
-        .send({ name: 'Test User', email: 'test@example.com', password: 'password123' });
+        .send({ name: 'Test User', email: 'test.user@gmail.com', password: 'password123' });
 
       expect(res.status).toBe(201);
       expect(res.body.status).toBe('success');
       expect(res.body.data.user).toBeDefined();
-      expect(res.body.data.user.email).toBe('test@example.com');
+      expect(res.body.data.user.email).toBe('test.user@gmail.com');
+      expect(res.body.data.user.isVerified).toBe(true);
     });
 
     it('should always assign "buyer" role (ignores role in payload)', async () => {
       const res = await request(app)
         .post('/api/v1/auth/register')
-        .send({ name: 'Hacker', email: 'hacker@example.com', password: 'Test@1234', role: 'admin' });
+        .send({ name: 'Hacker', email: 'hacker.user@gmail.com', password: 'Test@1234', role: 'admin' });
 
       expect(res.status).toBe(201);
       expect(res.body.data.user.role).toBe('buyer');
     });
 
+    it('should reject fake and disposable email addresses with 400', async () => {
+      const fakeEmails = ['test@test.com', 'test@example.com', 'demo@demo.com', 'user@mailinator.com'];
+      for (const email of fakeEmails) {
+        const res = await request(app)
+          .post('/api/v1/auth/register')
+          .send({ name: 'Fake User', email, password: 'password123' });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe('Please use a valid personal or business email address.');
+      }
+    });
+
     it('should reject duplicate email with 400', async () => {
       await request(app).post('/api/v1/auth/register')
-        .send({ name: 'User1', email: 'dup@example.com', password: 'Test@1234' });
+        .send({ name: 'User1', email: 'dup.user@gmail.com', password: 'Test@1234' });
 
       const res = await request(app).post('/api/v1/auth/register')
-        .send({ name: 'User2', email: 'dup@example.com', password: 'pass456' });
+        .send({ name: 'User2', email: 'dup.user@gmail.com', password: 'pass456' });
 
       expect(res.status).toBe(400);
       expect(res.body.status).toBe('fail');
@@ -58,7 +71,7 @@ describe('Auth Routes', () => {
     it('should reject missing required fields with 400', async () => {
       const res = await request(app)
         .post('/api/v1/auth/register')
-        .send({ email: 'noname@example.com' });
+        .send({ email: 'noname.user@gmail.com' });
 
       expect(res.status).toBe(400);
     });
@@ -71,26 +84,26 @@ describe('Auth Routes', () => {
     beforeEach(async () => {
       // Create a verified user before each login test
       verifiedUser = await createVerifiedUser(request, app, {
-        name: 'Login User', email: 'login@example.com', password: 'correctpass',
+        name: 'Login User', email: 'login.user@gmail.com', password: 'correctpass',
       });
     });
 
     it('should login with correct credentials and return tokens', async () => {
       const res = await request(app)
         .post('/api/v1/auth/login')
-        .send({ email: 'login@example.com', password: 'correctpass' });
+        .send({ email: 'login.user@gmail.com', password: 'correctpass' });
 
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('success');
       expect(res.body.token).toBeDefined();
       expect(res.body.refreshToken).toBeDefined();
-      expect(res.body.data.user.email).toBe('login@example.com');
+      expect(res.body.data.user.email).toBe('login.user@gmail.com');
     });
 
     it('should reject wrong password with 401', async () => {
       const res = await request(app)
         .post('/api/v1/auth/login')
-        .send({ email: 'login@example.com', password: 'wrongpass' });
+        .send({ email: 'login.user@gmail.com', password: 'wrongpass' });
 
       expect(res.status).toBe(401);
     });
@@ -98,19 +111,18 @@ describe('Auth Routes', () => {
     it('should reject non-existent user with 401', async () => {
       const res = await request(app)
         .post('/api/v1/auth/login')
-        .send({ email: 'ghost@example.com', password: 'Test@1234' });
+        .send({ email: 'ghost.user@gmail.com', password: 'Test@1234' });
 
       expect(res.status).toBe(401);
     });
 
     it('should reject unverified user with 403', async () => {
-      // Register without verifying
-      await request(app).post('/api/v1/auth/register')
-        .send({ name: 'Unverified', email: 'unverified@example.com', password: 'Test@1234' });
+      // Manually create an unverified user in DB
+      await User.create({ name: 'Unverified', email: 'unverified.user@gmail.com', password: 'Test@1234', isVerified: false });
 
       const res = await request(app)
         .post('/api/v1/auth/login')
-        .send({ email: 'unverified@example.com', password: 'Test@1234' });
+        .send({ email: 'unverified.user@gmail.com', password: 'Test@1234' });
 
       expect(res.status).toBe(403);
     });
@@ -120,7 +132,7 @@ describe('Auth Routes', () => {
   describe('GET /api/v1/auth/me', () => {
     it('should return current user profile when authenticated', async () => {
       const { token } = await createVerifiedUser(request, app, {
-        name: 'Me User', email: 'me@example.com', password: 'Test@1234',
+        name: 'Me User', email: 'me.user@gmail.com', password: 'Test@1234',
       });
 
       const res = await request(app)
@@ -128,7 +140,7 @@ describe('Auth Routes', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.data.user.email).toBe('me@example.com');
+      expect(res.body.data.user.email).toBe('me.user@gmail.com');
     });
 
     it('should reject unauthenticated request with 401', async () => {
@@ -149,7 +161,7 @@ describe('Auth Routes', () => {
   describe('POST /api/v1/auth/logout', () => {
     it('should logout successfully', async () => {
       const { token, refreshToken } = await createVerifiedUser(request, app, {
-        name: 'Logout User', email: 'logout@example.com', password: 'Test@1234',
+        name: 'Logout User', email: 'logout.user@gmail.com', password: 'Test@1234',
       });
 
       const res = await request(app)
@@ -166,12 +178,12 @@ describe('Auth Routes', () => {
   describe('GET /api/v1/dashboard/admin/users/export', () => {
     it('should allow admins to export users to Excel (.xlsx)', async () => {
       const { token } = await createVerifiedUser(request, app, {
-        name: 'Admin User', email: 'admin-export@example.com', password: 'Test@1234', role: 'admin',
+        name: 'Admin User', email: 'admin.export@gmail.com', password: 'Test@1234', role: 'admin',
       });
 
       // Create a couple of additional users to export
-      await User.create({ name: 'Buyer 1', email: 'buyer1@example.com', password: 'password123', role: 'buyer', isVerified: true });
-      await User.create({ name: 'Owner 1', email: 'owner1@example.com', password: 'password123', role: 'owner', isVerified: true });
+      await User.create({ name: 'Buyer 1', email: 'buyer1.user@gmail.com', password: 'password123', role: 'buyer', isVerified: true });
+      await User.create({ name: 'Owner 1', email: 'owner1.user@gmail.com', password: 'password123', role: 'owner', isVerified: true });
 
       const res = await request(app)
         .get('/api/v1/dashboard/admin/users/export')
@@ -211,7 +223,7 @@ describe('Auth Routes', () => {
 
     it('should reject non-admin users with 403', async () => {
       const { token } = await createVerifiedUser(request, app, {
-        name: 'Normal User', email: 'buyer-export@example.com', password: 'Test@1234', role: 'buyer',
+        name: 'Normal User', email: 'buyer.export@gmail.com', password: 'Test@1234', role: 'buyer',
       });
 
       const res = await request(app)
