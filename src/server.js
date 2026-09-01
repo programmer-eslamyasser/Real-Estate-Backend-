@@ -172,11 +172,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc:     ["'self'", 'data:', 'https://res.cloudinary.com', 'https://lh3.googleusercontent.com', 'blob:'],
+      imgSrc:     ["'self'", 'data:', 'https://res.cloudinary.com', 'https://lh3.googleusercontent.com', 'https://*.googleusercontent.com', 'blob:'],
       scriptSrc:  ["'self'", 'https://accounts.google.com'],
       styleSrc:   ["'self'", "'unsafe-inline'", 'https://accounts.google.com'],
-      connectSrc: ["'self'", CLIENT_URL, ...allowedOrigins, 'https://accounts.google.com'],
-      frameSrc:   ["'self'", 'https://accounts.google.com'],
+      connectSrc: ["'self'", CLIENT_URL, ...allowedOrigins, 'https://accounts.google.com', 'https://oauth2.googleapis.com', 'https://www.googleapis.com'],
+      frameSrc:   ["'self'", 'https://accounts.google.com', 'https://content-autofill.googleapis.com'],
       objectSrc:  ["'none'"],
     },
   },
